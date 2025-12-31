@@ -7,7 +7,7 @@ concurrency:
 on:
   push:
     branches:
-      - 1.21.8
+      - 1.21.8  # Only build on this branch
 
 jobs:
   build:
@@ -43,6 +43,13 @@ jobs:
       - name: Build
         run: ./gradlew build -Pcommit=${{ github.sha }} -Pbuild_number=${{ steps.build-number.outputs.number }}
 
+      - name: Upload built JARs
+        uses: actions/upload-artifact@v3
+        with:
+          name: meteor-client-artifacts
+          path: |
+            build/libs/meteor-client-*.jar
+
       - name: Webhook Failure
         if: ${{ failure() }}
         run: |
@@ -50,12 +57,6 @@ jobs:
           npm run webhook -- ${{ steps.build-number.outputs.number }} ${{ github.ref_name }} https://api.github.com/repos/MeteorDevelopment/meteor-client/compare/${{ github.event.before }}...${{ github.event.after }} false
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-
-      - name: Publish
-        run: ./gradlew publish -Pcommit=${{ github.sha }} -Pbuild_number=${{ steps.build-number.outputs.number }}
-        env:
-          MAVEN_METEOR_ALIAS: ${{ secrets.MAVEN_METEOR_ALIAS }}
-          MAVEN_METEOR_TOKEN: ${{ secrets.MAVEN_METEOR_TOKEN }}
 
       - name: Discord webhook
         run: |
