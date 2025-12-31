@@ -92,6 +92,10 @@ dependencies {
     modCompileOnly(libs.baritone)
     modCompileOnly(libs.modmenu)
 
+    // Mixin
+    modCompileOnly("org.spongepowered:mixin:0.8.5")
+    annotationProcessor("org.spongepowered:mixin:0.8.5")
+
     // Libraries (JAR-in-JAR)
     jij(libs.orbit)
     jij(libs.starscript)
@@ -113,13 +117,9 @@ sourceSets {
 }
 
 // Handle transitive dependencies for jar-in-jar
-// Based on implementation from BaseProject by FlorianMichael/EnZaXD
-// Source: https://github.com/FlorianMichael/BaseProject/blob/main/src/main/kotlin/de/florianmichael/baseproject/Fabric.kt
-// Licensed under Apache License 2.0
 afterEvaluate {
     val jijConfig = configurations.findByName("jij") ?: return@afterEvaluate
 
-    // Dependencies to exclude from jar-in-jar
     val excluded = setOf(
         "org.slf4j",    // Logging provided by Minecraft
         "jsr305"        // Compile time annotations only
@@ -127,13 +127,11 @@ afterEvaluate {
 
     jijConfig.incoming.resolutionResult.allDependencies.forEach { dep ->
         val requested = dep.requested.displayName
-
         if (excluded.any { requested.contains(it) }) return@forEach
 
         val compileOnlyDep = dependencies.create(requested) {
             isTransitive = false
         }
-
         val implDep = dependencies.create(compileOnlyDep)
 
         dependencies.add("compileOnlyApi", compileOnlyDep)
@@ -144,6 +142,9 @@ afterEvaluate {
 
 loom {
     accessWidenerPath = file("src/main/resources/meteor-client.accesswidener")
+    mixin {
+        defaultRefmapName = "mixins.meteor.refmap.json"
+    }
 }
 
 tasks {
@@ -165,7 +166,6 @@ tasks {
         }
     }
 
-    // Compile launcher with Java 8 for backwards compatibility
     getByName<JavaCompile>("compileLauncherJava") {
         sourceCompatibility = JavaVersion.VERSION_1_8.toString()
         targetCompatibility = JavaVersion.VERSION_1_8.toString()
@@ -174,16 +174,12 @@ tasks {
 
     jar {
         inputs.property("archivesName", project.base.archivesName.get())
-
         from("LICENSE") {
             rename { "${it}_${inputs.properties["archivesName"]}" }
         }
-
-        // Include launcher classes
         val launcher = sourceSets.getByName("launcher")
         from(launcher.output.classesDirs)
         from(launcher.output.resourcesDir)
-
         manifest {
             attributes["Main-Class"] = "meteordevelopment.meteorclient.Main"
         }
@@ -224,7 +220,6 @@ publishing {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
             artifactId = "meteor-client"
-
             version = libs.versions.minecraft.get() + "-SNAPSHOT"
         }
     }
