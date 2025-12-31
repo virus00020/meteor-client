@@ -1,20 +1,20 @@
 plugins {
     id("fabric-loom") version "1.10-SNAPSHOT"
-    id("maven-publish")
+    `maven-publish`
     id("com.gradleup.shadow") version "9.0.0-beta11"
 }
 
 base {
-    archivesName = properties["archives_base_name"] as String
+    archivesName.set(properties["archives_base_name"] as String)
     group = properties["maven_group"] as String
 
     val suffix = if (project.hasProperty("build_number")) {
-        project.findProperty("build_number")
+        project.findProperty("build_number")!!
     } else {
         "local"
     }
 
-    version = properties["minecraft_version"] as String + "-" + suffix
+    version = "${properties["minecraft_version"]}-$suffix"
 }
 
 repositories {
@@ -53,65 +53,63 @@ val modInclude: Configuration by configurations.creating
 val library: Configuration by configurations.creating
 
 configurations {
-    // include mods
-    modImplementation.configure {
+    modImplementation {
         extendsFrom(modInclude)
     }
-    include.configure {
+    include {
         extendsFrom(modInclude)
     }
 
-    // include libraries
-    implementation.configure {
+    implementation {
         extendsFrom(library)
     }
-    shadow.configure {
+    shadow {
         extendsFrom(library)
     }
 }
 
 dependencies {
     // Fabric
-    minecraft("com.mojang:minecraft:${properties["minecraft_version"] as String}")
-    mappings("net.fabricmc:yarn:${properties["yarn_mappings"] as String}:v2")
-    modImplementation("net.fabricmc:fabric-loader:${properties["loader_version"] as String}")
+    minecraft("com.mojang:minecraft:${properties["minecraft_version"]}")
+    mappings("net.fabricmc:yarn:${properties["yarn_mappings"]}:v2")
+    modImplementation("net.fabricmc:fabric-loader:${properties["loader_version"]}")
 
     modInclude(fabricApi.module("fabric-api-base", properties["fapi_version"] as String))
     modInclude(fabricApi.module("fabric-resource-loader-v0", properties["fapi_version"] as String))
 
     // Compat fixes
     modCompileOnly(fabricApi.module("fabric-renderer-indigo", properties["fapi_version"] as String))
-    modCompileOnly("maven.modrinth:sodium:${properties["sodium_version"] as String}") { isTransitive = false }
-    modCompileOnly("maven.modrinth:lithium:${properties["lithium_version"] as String}") { isTransitive = false }
-    modCompileOnly("maven.modrinth:iris:${properties["iris_version"] as String}") { isTransitive = false }
-    modCompileOnly("com.viaversion:viafabricplus:${properties["viafabricplus_version"] as String}") { isTransitive = false }
-    modCompileOnly("com.viaversion:viafabricplus-api:${properties["viafabricplus_version"] as String}") { isTransitive = false }
+    modCompileOnly("maven.modrinth:sodium:${properties["sodium_version"]}") { isTransitive = false }
+    modCompileOnly("maven.modrinth:lithium:${properties["lithium_version"]}") { isTransitive = false }
+    modCompileOnly("maven.modrinth:iris:${properties["iris_version"]}") { isTransitive = false }
+    modCompileOnly("com.viaversion:viafabricplus:${properties["viafabricplus_version"]}") { isTransitive = false }
+    modCompileOnly("com.viaversion:viafabricplus-api:${properties["viafabricplus_version"]}") { isTransitive = false }
 
-    // Baritone (https://github.com/MeteorDevelopment/baritone)
-    modCompileOnly("meteordevelopment:baritone:${properties["baritone_version"] as String}-SNAPSHOT")
-    // ModMenu (https://github.com/TerraformersMC/ModMenu)
-    modCompileOnly("com.terraformersmc:modmenu:${properties["modmenu_version"] as String}")
+    // Baritone & ModMenu
+    modCompileOnly("meteordevelopment:baritone:${properties["baritone_version"]}-SNAPSHOT")
+    modCompileOnly("com.terraformersmc:modmenu:${properties["modmenu_version"]}")
 
     // Libraries
-    library("meteordevelopment:orbit:${properties["orbit_version"] as String}")
-    library("org.meteordev:starscript:${properties["starscript_version"] as String}")
-    library("meteordevelopment:discord-ipc:${properties["discordipc_version"] as String}")
-    library("org.reflections:reflections:${properties["reflections_version"] as String}")
-    library("io.netty:netty-handler-proxy:${properties["netty_version"] as String}") { isTransitive = false }
-    library("io.netty:netty-codec-socks:${properties["netty_version"] as String}") { isTransitive = false }
-    library("de.florianmichael:WaybackAuthLib:${properties["waybackauthlib_version"] as String}")
+    library("meteordevelopment:orbit:${properties["orbit_version"]}")
+    library("org.meteordev:starscript:${properties["starscript_version"]}")
+    library("meteordevelopment:discord-ipc:${properties["discordipc_version"]}")
+    library("org.reflections:reflections:${properties["reflections_version"]}")
+    library("io.netty:netty-handler-proxy:${properties["netty_version"]}") { isTransitive = false }
+    library("io.netty:netty-codec-socks:${properties["netty_version"]}") { isTransitive = false }
+    library("de.florianmichael:WaybackAuthLib:${properties["waybackauthlib_version"]}")
 
-    // Launch sub project
+    // Launch subproject
     shadow(project(":launch"))
 }
 
 loom {
-    accessWidenerPath = file("src/main/resources/meteor-client.accesswidener")
+    accessWidenerPath.set(file("src/main/resources/meteor-client.accesswidener"))
 }
 
 afterEvaluate {
-    tasks.migrateMappings.configure {
-        outputDir.set(project.file("src/main/java"))
+    tasks.named("migrateMappings") {
+        this as org.gradle.api.tasks.Copy
+        outputDir.set(file("src/main/java"))
     }
 }
 
@@ -129,16 +127,14 @@ tasks {
         )
 
         inputs.properties(propertyMap)
-        filesMatching("fabric.mod.json") {
-            expand(propertyMap)
-        }
+        filesMatching("fabric.mod.json") { expand(propertyMap) }
     }
 
     jar {
         inputs.property("archivesName", project.base.archivesName.get())
 
         from("LICENSE") {
-            rename { "${it}_${inputs.properties["archivesName"]}" }
+            rename { "${it}_${project.base.archivesName.get()}" }
         }
 
         manifest {
@@ -157,9 +153,8 @@ tasks {
     }
 
     withType<JavaCompile> {
-        options.release = 21
-        options.compilerArgs.add("-Xlint:deprecation")
-        options.compilerArgs.add("-Xlint:unchecked")
+        options.release.set(21)
+        options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
     }
 
     shadowJar {
@@ -168,13 +163,11 @@ tasks {
         inputs.property("archivesName", project.base.archivesName.get())
 
         from("LICENSE") {
-            rename { "${it}_${inputs.properties["archivesName"]}" }
+            rename { "${it}_${project.base.archivesName.get()}" }
         }
 
         dependencies {
-            exclude {
-                it.moduleGroup == "org.slf4j"
-            }
+            exclude { it.moduleGroup == "org.slf4j" }
         }
     }
 
@@ -184,7 +177,7 @@ tasks {
     }
 
     javadoc {
-        with(options as StandardJavadocDocletOptions) {
+        (options as StandardJavadocDocletOptions).apply {
             addStringOption("Xdoclint:none", "-quiet")
             addStringOption("encoding", "UTF-8")
             addStringOption("charSet", "UTF-8")
@@ -203,8 +196,7 @@ publishing {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
             artifactId = "meteor-client"
-
-            version = properties["minecraft_version"] as String + "-SNAPSHOT"
+            version = "${properties["minecraft_version"]}-SNAPSHOT"
         }
     }
 
