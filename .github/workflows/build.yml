@@ -40,11 +40,11 @@ jobs:
           npm install
           npm run --silent get_number >> $GITHUB_OUTPUT
 
-      - name: Build
-        run: ./gradlew build -Pcommit=${{ github.sha }} -Pbuild_number=${{ steps.build-number.outputs.number }}
+      - name: Build Shadow JAR
+        run: ./gradlew shadowJar remapJar -Pcommit=${{ github.sha }} -Pbuild_number=${{ steps.build-number.outputs.number }}
 
       - name: Upload built JARs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: meteor-client-artifacts
           path: |
