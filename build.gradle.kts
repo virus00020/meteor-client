@@ -34,6 +34,12 @@ repositories {
         url = uri("https://repo.viaversion.com")
     }
     mavenCentral()
+    
+    // SpongePowered repo for Mixin
+    maven {
+        name = "SpongePowered"
+        url = uri("https://repo.spongepowered.org/maven")
+    }
 
     exclusiveContent {
         forRepository {
@@ -142,9 +148,7 @@ afterEvaluate {
 
 loom {
     accessWidenerPath = file("src/main/resources/meteor-client.accesswidener")
-    mixin {
-        defaultRefmapName = "mixins.meteor.refmap.json"
-    }
+    // Removed deprecated mixin block
 }
 
 tasks {
