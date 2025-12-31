@@ -1,6 +1,6 @@
 plugins {
     id("fabric-loom") version "1.10-SNAPSHOT"
-    `maven-publish`
+    id("maven-publish")
     id("com.gradleup.shadow") version "9.0.0-beta11"
 }
 
@@ -9,7 +9,7 @@ base {
     group = properties["maven_group"] as String
 
     val suffix = if (project.hasProperty("build_number")) {
-        project.findProperty("build_number")!!
+        project.findProperty("build_number")
     } else {
         "local"
     }
@@ -52,21 +52,11 @@ repositories {
 val modInclude: Configuration by configurations.creating
 val library: Configuration by configurations.creating
 
-configurations {
-    modImplementation {
-        extendsFrom(modInclude)
-    }
-    include {
-        extendsFrom(modInclude)
-    }
-
-    implementation {
-        extendsFrom(library)
-    }
-    shadow {
-        extendsFrom(library)
-    }
-}
+// Fix extendsFrom for Kotlin DSL
+configurations.getByName("modImplementation").extendsFrom(modInclude)
+configurations.getByName("include").extendsFrom(modInclude)
+configurations.getByName("implementation").extendsFrom(library)
+configurations.getByName("shadow").extendsFrom(library)
 
 dependencies {
     // Fabric
@@ -85,7 +75,7 @@ dependencies {
     modCompileOnly("com.viaversion:viafabricplus:${properties["viafabricplus_version"]}") { isTransitive = false }
     modCompileOnly("com.viaversion:viafabricplus-api:${properties["viafabricplus_version"]}") { isTransitive = false }
 
-    // Baritone & ModMenu
+    // Baritone
     modCompileOnly("meteordevelopment:baritone:${properties["baritone_version"]}-SNAPSHOT")
     modCompileOnly("com.terraformersmc:modmenu:${properties["modmenu_version"]}")
 
@@ -98,7 +88,6 @@ dependencies {
     library("io.netty:netty-codec-socks:${properties["netty_version"]}") { isTransitive = false }
     library("de.florianmichael:WaybackAuthLib:${properties["waybackauthlib_version"]}")
 
-    // Launch subproject
     shadow(project(":launch"))
 }
 
@@ -107,8 +96,7 @@ loom {
 }
 
 afterEvaluate {
-    tasks.named("migrateMappings") {
-        this as org.gradle.api.tasks.Copy
+    tasks.named<net.fabricmc.loom.task.MigrateMappingsTask>("migrateMappings") {
         outputDir.set(file("src/main/java"))
     }
 }
@@ -127,14 +115,16 @@ tasks {
         )
 
         inputs.properties(propertyMap)
-        filesMatching("fabric.mod.json") { expand(propertyMap) }
+        filesMatching("fabric.mod.json") {
+            expand(propertyMap)
+        }
     }
 
     jar {
         inputs.property("archivesName", project.base.archivesName.get())
 
         from("LICENSE") {
-            rename { "${it}_${project.base.archivesName.get()}" }
+            rename { "${it}_${inputs.properties["archivesName"]}" }
         }
 
         manifest {
@@ -154,20 +144,23 @@ tasks {
 
     withType<JavaCompile> {
         options.release.set(21)
-        options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
+        options.compilerArgs.add("-Xlint:deprecation")
+        options.compilerArgs.add("-Xlint:unchecked")
     }
 
     shadowJar {
-        configurations = listOf(project.configurations.shadow.get())
+        configurations = listOf(project.configurations.getByName("shadow"))
 
         inputs.property("archivesName", project.base.archivesName.get())
 
         from("LICENSE") {
-            rename { "${it}_${project.base.archivesName.get()}" }
+            rename { "${it}_${inputs.properties["archivesName"]}" }
         }
 
         dependencies {
-            exclude { it.moduleGroup == "org.slf4j" }
+            exclude {
+                it.moduleGroup == "org.slf4j"
+            }
         }
     }
 
@@ -196,6 +189,7 @@ publishing {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
             artifactId = "meteor-client"
+
             version = "${properties["minecraft_version"]}-SNAPSHOT"
         }
     }
